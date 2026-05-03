@@ -13,11 +13,11 @@ class PendulumPainter:
     def __init__(
         self,
         center: tuple[int, int],
-        swing_radius_mm: int,
-        px_per_mm: int = 1,
+        swing_radius_m: float,
+        px_per_meter: float,
     ) -> None:
         self.center = pygame.Vector2(center)
-        self.length_px = swing_radius_mm * px_per_mm
+        self.length_px = swing_radius_m * px_per_meter
         self.angle_rad = 0.0
         self.reference_angle_rad = 0.0
 
@@ -106,8 +106,8 @@ class PendulumPainter:
 
 def main() -> None:
     canvas_size = 800
-    pendulum_radius_mm = 300
-    px_per_mm = 1
+    pendulum_radius_m = 1.0
+    px_per_meter = 300
     fps = 60
 
     pygame.init()
@@ -119,8 +119,8 @@ def main() -> None:
 
     pendulum = PendulumPainter(
         center=(canvas_size // 2, canvas_size // 2),
-        swing_radius_mm=pendulum_radius_mm,
-        px_per_mm=px_per_mm,
+        swing_radius_m=pendulum_radius_m,
+        px_per_meter=px_per_meter,
     )
     angular_speed_rad_per_sec = math.radians(45.0)
     pendulum.set_reference_angle(math.radians(90.0))
