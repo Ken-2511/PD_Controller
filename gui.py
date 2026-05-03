@@ -1,49 +1,51 @@
 import math
-
 import pygame
-
-
-CANVAS_SIZE = 800
-PENDULUM_DIAMETER_MM = 600
-PX_PER_MM = 1
-FPS = 60
 
 
 class PendulumPainter:
     """Draw-only pendulum view.
 
     Angle convention:
-    - 0 degrees points vertically downward.
-    - Positive degrees rotate counterclockwise.
+    - 0 radians points vertically downward.
+    - Positive radians rotate counterclockwise around +z, out of the page.
     """
 
     def __init__(
         self,
         center: tuple[int, int],
-        swing_diameter_mm: int = PENDULUM_DIAMETER_MM,
-        px_per_mm: int = PX_PER_MM,
+        swing_radius_mm: int,
+        px_per_mm: int = 1,
     ) -> None:
         self.center = pygame.Vector2(center)
-        self.length_px = swing_diameter_mm * px_per_mm / 2
-        self.angle_deg = 0.0
+        self.length_px = swing_radius_mm * px_per_mm
+        self.angle_rad = 0.0
+        self.reference_angle_rad = 0.0
 
         self.background_color = (248, 249, 251)
         self.guide_color = (214, 220, 228)
+        self.reference_color = (65, 125, 230)
         self.rod_color = (35, 43, 54)
         self.bob_color = (231, 91, 77)
         self.pivot_color = (28, 36, 48)
         self.text_color = (61, 69, 82)
 
-    def set_angle(self, angle_deg: float) -> None:
-        self.angle_deg = angle_deg % 360
+    def set_angle(self, angle_rad: float) -> None:
+        self.angle_rad = angle_rad % (2 * math.pi)
 
-    def bob_position(self) -> pygame.Vector2:
-        angle_rad = math.radians(self.angle_deg)
+    def set_reference_angle(self, angle_rad: float) -> None:
+        self.reference_angle_rad = angle_rad % (2 * math.pi)
+
+    def position_from_angle(self, angle_rad: float) -> pygame.Vector2:
+        # Pygame's screen y-axis points downward, so this maps from math xy
+        # coordinates with +z out of the page into screen coordinates.
         offset = pygame.Vector2(
-            -math.sin(angle_rad) * self.length_px,
+            math.sin(angle_rad) * self.length_px,
             math.cos(angle_rad) * self.length_px,
         )
         return self.center + offset
+
+    def bob_position(self) -> pygame.Vector2:
+        return self.position_from_angle(self.angle_rad)
 
     def draw(self, surface: pygame.Surface, font: pygame.font.Font) -> None:
         surface.fill(self.background_color)
@@ -73,6 +75,11 @@ class PendulumPainter:
             width=1,
         )
 
+        reference = self.position_from_angle(self.reference_angle_rad)
+        reference_xy = (round(reference.x), round(reference.y))
+        pygame.draw.line(surface, self.reference_color, center_xy, reference_xy, width=3)
+        pygame.draw.circle(surface, self.reference_color, reference_xy, 12, width=3)
+
         bob = self.bob_position()
         bob_xy = (round(bob.x), round(bob.y))
         pygame.draw.line(surface, self.rod_color, center_xy, bob_xy, width=6)
@@ -80,31 +87,54 @@ class PendulumPainter:
         pygame.draw.circle(surface, (142, 47, 40), bob_xy, 26, width=3)
         pygame.draw.circle(surface, self.pivot_color, center_xy, 10)
 
-        label = font.render(f"angle: {self.angle_deg:6.1f} deg", True, self.text_color)
+        angle_deg = math.degrees(self.angle_rad)
+        label = font.render(
+            f"angle: {self.angle_rad:5.2f} rad / {angle_deg:6.1f} deg",
+            True,
+            self.text_color,
+        )
         surface.blit(label, (24, 24))
+
+        reference_deg = math.degrees(self.reference_angle_rad)
+        reference_label = font.render(
+            f"ref:   {self.reference_angle_rad:5.2f} rad / {reference_deg:6.1f} deg",
+            True,
+            self.reference_color,
+        )
+        surface.blit(reference_label, (24, 52))
 
 
 def main() -> None:
+    canvas_size = 800
+    pendulum_radius_mm = 300
+    px_per_mm = 1
+    fps = 60
+
     pygame.init()
     pygame.display.set_caption("Pendulum Painter")
 
-    screen = pygame.display.set_mode((CANVAS_SIZE, CANVAS_SIZE))
+    screen = pygame.display.set_mode((canvas_size, canvas_size))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("consolas", 22)
 
-    pendulum = PendulumPainter(center=(CANVAS_SIZE // 2, CANVAS_SIZE // 2))
-    angular_speed_deg_per_sec = 45.0
+    pendulum = PendulumPainter(
+        center=(canvas_size // 2, canvas_size // 2),
+        swing_radius_mm=pendulum_radius_mm,
+        px_per_mm=px_per_mm,
+    )
+    angular_speed_rad_per_sec = math.radians(45.0)
+    pendulum.set_reference_angle(math.radians(90.0))
     angle = 0.0
 
     running = True
     while running:
-        dt = clock.tick(FPS) / 1000.0
+        dt = clock.tick(fps) / 1000.0
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-        angle += angular_speed_deg_per_sec * dt
+        angle += angular_speed_rad_per_sec * dt
         pendulum.set_angle(angle)
         pendulum.draw(screen, font)
         pygame.display.flip()
